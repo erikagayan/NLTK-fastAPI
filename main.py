@@ -1,13 +1,14 @@
 from fastapi import FastAPI
-from fastapi import FastAPI, HTTPException, Depends
 from sqlalchemy.orm import Session
-from database.engine import SessionLocal, engine
 from database.models import Base, TextItem
 from schemas import TextRequest, TokenResponse
-import nltk
-from nltk.tokenize import word_tokenize
-from nltk.tag import pos_tag
+from database.engine import SessionLocal, engine
+from fastapi import FastAPI, HTTPException, Depends
+
+from nltk import ne_chunk
 from nltk.tree import Tree
+from nltk.tag import pos_tag
+from nltk.tokenize import word_tokenize
 
 
 Base.metadata.create_all(bind=engine)
@@ -59,3 +60,24 @@ def pos_tag_text(request: TextRequest, db: Session = Depends(get_db)):
     db.commit()
     db.refresh(db_item)
     return {"pos_tags": pos_tags}
+
+
+@app.post("/ner")
+def ner_text(request: TextRequest, db: Session = Depends(get_db)):
+    if not request.text:
+        raise HTTPException(status_code=400, detail="Text field is empty")
+
+    tokens = word_tokenize(request.text)
+    pos_tags = pos_tag(tokens)
+    chunks = ne_chunk(pos_tags, binary=False)
+    entities = []
+
+    for chunk in chunks:
+        if isinstance(chunk, Tree):
+            entities.append({"label": chunk.label(), "chunk": " ".join(c[0] for c in chunk.leaves())})
+
+    db_item = TextItem(text=request.text, tokens=str(entities))
+    db.add(db_item)
+    db.commit()
+    db.refresh(db_item)
+    return {"entities": entities}
