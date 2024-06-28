@@ -1,4 +1,3 @@
-from fastapi import FastAPI
 from sqlalchemy.orm import Session
 from database.models import Base, TextItem
 from schemas import TextRequest, TokenResponse
@@ -23,16 +22,6 @@ def get_db():
         yield db
     finally:
         db.close()
-
-
-@app.get("/")
-async def root():
-    return {"message": "Hello World"}
-
-
-@app.get("/hello/{name}")
-async def say_hello(name: str):
-    return {"message": f"Hello {name}"}
 
 
 @app.post("/tokenize", response_model=TokenResponse)
@@ -74,7 +63,8 @@ def ner_text(request: TextRequest, db: Session = Depends(get_db)):
 
     for chunk in chunks:
         if isinstance(chunk, Tree):
-            entities.append({"label": chunk.label(), "chunk": " ".join(c[0] for c in chunk.leaves())})
+            entities.append({"label": chunk.label(), "chunk": " ".
+                            join(c[0] for c in chunk.leaves())})
 
     db_item = TextItem(text=request.text, tokens=str(entities))
     db.add(db_item)
